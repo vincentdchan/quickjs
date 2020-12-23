@@ -1193,6 +1193,7 @@ int mp_mul(bf_context_t *s, limb_t *result,
     return 0;
 }
 
+#ifndef DISABLE_128
 /* tabr[] -= taba[] * b. Return the value to substract to the high
    word. */
 static limb_t mp_sub_mul1(limb_t *tabr, const limb_t *taba, limb_t n,
@@ -1342,6 +1343,7 @@ static int mp_divnorm(bf_context_t *s, limb_t *tabq, limb_t *taba, limb_t na,
     }
     return 0;
 }
+#endif
 
 /* compute r=B^(2*n)/a such as a*r < B^(2*n) < a*r + 2 with n >= 1. 'a'
    has n limbs with a[n-1] >= B/2 and 'r' has n+1 limbs with r[n] = 1.

@@ -35,12 +35,18 @@
 
 #define LIMB_BITS (1 << LIMB_LOG2_BITS)
 
+#if defined(_WIN32)
+#define DISABLE_128
+#endif
+
 #if LIMB_BITS == 64
+#ifndef DISABLE_128
 typedef __int128 int128_t;
 typedef unsigned __int128 uint128_t;
+typedef uint128_t dlimb_t;
+#endif
 typedef int64_t slimb_t;
 typedef uint64_t limb_t;
-typedef uint128_t dlimb_t;
 #define BF_RAW_EXP_MIN INT64_MIN
 #define BF_RAW_EXP_MAX INT64_MAX
 
