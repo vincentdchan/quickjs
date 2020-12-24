@@ -23,9 +23,13 @@ target_compile_definitions(${PROJECT_NAME}
         CONFIG_VERSION="${BUILD_VERSION}"
         )
 
-add_executable(qjsc
-        ${SOURCES_ROOT}/qjsc.c
-        )
+set(QJSC_SOURCE ${SOURCES_ROOT}/qjsc.c)
+
+IF (WIN32)
+list(APPEND QJSC_SOURCE ${SOURCES_ROOT}/getopt.c)
+ENDIF()
+
+add_executable(qjsc ${QJSC_SOURCE})
 
 target_link_libraries(qjsc PRIVATE quickjs)
 

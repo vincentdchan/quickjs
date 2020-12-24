@@ -33,9 +33,16 @@
 
 #ifdef _WIN32
 #include <BaseTsd.h>
+#include <intrin.h>
+#include <Windows.h>
 #define ATTR_FORMAT(N, M)
 #define ATTR_UNUSED
 #define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))
+#define likely(x)       !!(x)
+#define unlikely(x)     !!(x)
+#define alloca(x) _alloca(x)
+#define popen(x) _open(x)
+#define pclose(x) _pclose(x)
 #define force_inline __forceinline
 #define no_inline __declspec(noinline)
 #define __exception
@@ -126,6 +133,38 @@ static inline int64_t min_int64(int64_t a, int64_t b)
         return b;
 }
 
+#if defined(_WIN32)
+static __inline int clz32(unsigned int a)
+{
+    DWORD leading_zero = 0;
+
+    if (_BitScanReverse(&leading_zero, a))
+    {
+        return 31 - leading_zero;
+    }
+    else
+    {
+        // Same remarks as above
+        return 32;
+    }
+}
+
+static __inline int clz64(uint64_t a)
+{
+    DWORD leading_zero = 0;
+
+    if (_BitScanReverse64(&leading_zero, a))
+    {
+        return 63 - leading_zero;
+    }
+    else
+    {
+        // Same remarks as above
+        return 64;
+    }
+}
+#else
+
 /* WARNING: undefined if a = 0 */
 static inline int clz32(unsigned int a)
 {
@@ -138,6 +177,40 @@ static inline int clz64(uint64_t a)
     return __builtin_clzll(a);
 }
 
+#endif
+
+#if defined(_WIN32)
+static inline int ctz32(unsigned int a)
+{
+    DWORD trailing_zero = 0;
+    
+    if (_BitScanForward(&trailing_zero, a))
+    {
+        return trailing_zero;
+    }
+    else
+    {
+        // This is undefined, I better choose 32 than 0
+        return 32;
+    }
+}
+
+static inline int ctz64(uint64_t a)
+{
+    DWORD trailing_zero = 0;
+
+    if (_BitScanForward64(&trailing_zero, a))
+    {
+        return trailing_zero;
+    }
+    else
+    {
+        // This is undefined, I better choose 32 than 0
+        return 64;
+    }
+}
+#else
+
 /* WARNING: undefined if a = 0 */
 static inline int ctz32(unsigned int a)
 {
@@ -149,6 +222,8 @@ static inline int ctz64(uint64_t a)
 {
     return __builtin_ctzll(a);
 }
+
+#endif
 
 PACK(struct packed_u64 {
     uint64_t v;

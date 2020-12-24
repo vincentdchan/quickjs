@@ -28,7 +28,9 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
-#ifndef _WIN32
+#if defined(_WIN32)
+#include <windows.h>
+#else
 #include <sys/time.h>
 #endif
 #include <time.h>
@@ -71,11 +73,11 @@
 
 /* define to include Atomics.* operations which depend on the OS
    threads */
-#if !defined(EMSCRIPTEN)
+#if !defined(EMSCRIPTEN) && !defined(_WIN32)
 #define CONFIG_ATOMICS
 #endif
 
-#if !defined(EMSCRIPTEN)
+#if !defined(EMSCRIPTEN) && !defined(_WIN32)
 /* enable stack limitation */
 #define CONFIG_STACK_CHECK
 #endif
@@ -41578,7 +41580,11 @@ static JSValue js_math_min_max(JSContext *ctx, JSValueConst this_val,
     uint32_t tag;
 
     if (unlikely(argc == 0)) {
+#if defined(_WIN32)
+        return __JS_NewFloat64(ctx, is_max ? -INFINITY : INFINITY);
+#else
         return __JS_NewFloat64(ctx, is_max ? -1.0 / 0.0 : 1.0 / 0.0);
+#endif
     }
 
     tag = JS_VALUE_GET_TAG(argv[0]);
@@ -41728,6 +41734,17 @@ static uint64_t xorshift64star(uint64_t *pstate)
     return x * 0x2545F4914F6CDD1D;
 }
 
+#if defined(_WIN32)
+static void js_random_init(JSContext* ctx)
+{
+    SYSTEMTIME st;
+    GetSystemTime(&st);
+    ctx->random_state = ((int64_t)st.wSecond * 1000000) + st.wMilliseconds;
+    /* the state must be non zero */
+    if (ctx->random_state == 0)
+        ctx->random_state = 1;
+}
+#else
 static void js_random_init(JSContext *ctx)
 {
     struct timeval tv;
@@ -41737,6 +41754,7 @@ static void js_random_init(JSContext *ctx)
     if (ctx->random_state == 0)
         ctx->random_state = 1;
 }
+#endif
 
 static JSValue js_math_random(JSContext *ctx, JSValueConst this_val,
                               int argc, JSValueConst *argv)
@@ -41818,6 +41836,7 @@ static JSValue js___date_now(JSContext *ctx, JSValueConst this_val,
 }
 #endif
 
+#if !defined(_WIN32)
 /* OS dependent: return the UTC time in microseconds since 1970. */
 static JSValue js___date_clock(JSContext *ctx, JSValueConst this_val,
                                int argc, JSValueConst *argv)
@@ -41828,6 +41847,7 @@ static JSValue js___date_clock(JSContext *ctx, JSValueConst this_val,
     d = (int64_t)tv.tv_sec * 1000000 + tv.tv_usec;
     return JS_NewInt64(ctx, d);
 }
+#endif
 
 /* OS dependent. d = argv[0] is in ms from 1970. Return the difference
    between local time and UTC time 'd' in minutes */
@@ -47685,12 +47705,18 @@ static const JSCFunctionListEntry js_global_funcs[] = {
     JS_CFUNC_MAGIC_DEF("encodeURIComponent", 1, js_global_encodeURI, 1 ),
     JS_CFUNC_DEF("escape", 1, js_global_escape ),
     JS_CFUNC_DEF("unescape", 1, js_global_unescape ),
+#if defined(_WIN32)
+    JS_PROP_DOUBLE_DEF("Infinity", INFINITY, 0),
+#else
     JS_PROP_DOUBLE_DEF("Infinity", 1.0 / 0.0, 0 ),
+#endif
     JS_PROP_DOUBLE_DEF("NaN", NAN, 0 ),
     JS_PROP_UNDEFINED_DEF("undefined", 0 ),
 
     /* for the 'Date' implementation */
+#if !defined(_WIN32)
     JS_CFUNC_DEF("__date_clock", 0, js___date_clock ),
+#endif
     //JS_CFUNC_DEF("__date_now", 0, js___date_now ),
     //JS_CFUNC_DEF("__date_getTimezoneOffset", 1, js___date_getTimezoneOffset ),
     //JS_CFUNC_DEF("__date_create", 3, js___date_create ),
@@ -48030,12 +48056,34 @@ static JSValue get_date_string(JSContext *ctx, JSValueConst this_val,
     return JS_NewStringLen(ctx, buf, pos);
 }
 
+#if defined(_WIN32)
+static int64_t date_now(void) {
+    //Get the number of seconds since January 1, 1970 12:00am UTC
+   //Code released into public domain; no attribution required.
+
+    const int64_t UNIX_TIME_START = 0x019DB1DED53E8000; //January 1, 1970 (start of Unix epoch) in "ticks"
+    const int64_t TICKS_PER_SECOND = 10000000; //a tick is 100ns
+
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft); //returns ticks in UTC
+
+    //Copy the low and high parts of FILETIME into a LARGE_INTEGER
+    //This is so we can access the full 64-bits as an Int64 without causing an alignment fault
+    LARGE_INTEGER li;
+    li.LowPart = ft.dwLowDateTime;
+    li.HighPart = ft.dwHighDateTime;
+
+    //Convert ticks since 1/1/1970 into seconds
+    return (li.QuadPart - UNIX_TIME_START) / TICKS_PER_SECOND;
+}
+#else
 /* OS dependent: return the UTC time in ms since 1970. */
 static int64_t date_now(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (int64_t)tv.tv_sec * 1000 + (tv.tv_usec / 1000);
 }
+#endif
 
 static JSValue js_date_constructor(JSContext *ctx, JSValueConst new_target,
                                    int argc, JSValueConst *argv)
