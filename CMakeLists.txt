@@ -39,7 +39,11 @@ target_compile_definitions(qjsc
         CONFIG_VERSION="${BUILD_VERSION}"
         )
 
-set(QJS_SOURCES ${SOURCES_ROOT}/qjs.c)
+add_custom_command(OUTPUT repl.c
+        COMMAND qjsc -c -o repl.c -m ${SOURCES_ROOT}/repl.js)
+
+set(QJS_SOURCES ${SOURCES_ROOT}/qjs.c
+        repl.c)
 
 IF (WIN32)
 list(APPEND QJS_SOURCES ${SOURCES_ROOT}/win_patch.c)
