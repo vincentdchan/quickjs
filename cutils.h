@@ -35,6 +35,7 @@
 #include <BaseTsd.h>
 #include <intrin.h>
 #include <Windows.h>
+#include "win_patch.h"
 #define ATTR_FORMAT(N, M)
 #define ATTR_UNUSED
 #define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))

@@ -1943,14 +1943,7 @@ static JSValue js_os_signal(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-#if defined(_WIN32)
-/* more portable, but does not work if the date is updated */
-static int64_t get_time_ms(void)
-{
-    assert(0);
-    return 0;
-}
-#elif defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__)
 static int64_t get_time_ms(void)
 {
     struct timespec ts;

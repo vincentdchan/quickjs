@@ -27,6 +27,7 @@ set(QJSC_SOURCE ${SOURCES_ROOT}/qjsc.c)
 
 IF (WIN32)
 list(APPEND QJSC_SOURCE ${SOURCES_ROOT}/getopt.c)
+list(APPEND QJSC_SOURCE ${SOURCES_ROOT}/win_patch.c)
 ENDIF()
 
 add_executable(qjsc ${QJSC_SOURCE})
