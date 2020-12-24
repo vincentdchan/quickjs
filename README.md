@@ -5,6 +5,8 @@ A fork of Bellard's QuickJS.
 
 CMake support of QuickJS, use submodule to the official mirror.
 
+Available on Windows(32-bit) **without** mingw.
+
 # Usage
 
 Clone the repo:
