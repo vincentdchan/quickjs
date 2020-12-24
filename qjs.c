@@ -28,7 +28,9 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
+#if !defined(_WIN32)
 #include <unistd.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <time.h>
@@ -156,7 +158,7 @@ static inline size_t js_trace_malloc_usable_size(void *ptr)
 #endif
 }
 
-static void __attribute__((format(printf, 2, 3)))
+static void ATTR_FORMAT(2, 3)
     js_trace_malloc_printf(JSMallocState *s, const char *fmt, ...)
 {
     va_list ap;
@@ -448,8 +450,10 @@ int main(int argc, char **argv)
         }
     }
 
+#ifdef CONFIG_BIGNUM
     if (load_jscalc)
         bignum_ext = 1;
+#endif
 
     if (trace_memory) {
         js_trace_malloc_init(&trace_data);
@@ -516,9 +520,11 @@ int main(int argc, char **argv)
             if (eval_file(ctx, filename, module))
                 goto fail;
         }
+#if !defined(_WIN32)
         if (interactive) {
             js_std_eval_binary(ctx, qjsc_repl, qjsc_repl_size, 0);
         }
+#endif
         js_std_loop(ctx);
     }
     

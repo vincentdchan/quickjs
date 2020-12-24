@@ -29,18 +29,22 @@
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
-#include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#if !defined(_WIN32)
+#include <unistd.h>
 #include <dirent.h>
 #include <ftw.h>
+#endif
 
 #include "cutils.h"
 #include "list.h"
 #include "quickjs-libc.h"
 
+#if !defined(_WIN32)
 /* enable test262 thread support to test SharedArrayBuffer and Atomics */
 #define CONFIG_AGENT
+#endif
 
 #define CMD_NAME "run-test262"
 
@@ -85,8 +89,8 @@ int test_count, test_failed, test_index, test_skipped, test_excluded;
 int new_errors, changed_errors, fixed_errors;
 int async_done;
 
-void warning(const char *, ...) __attribute__((__format__(__printf__, 1, 2)));
-void fatal(int, const char *, ...) __attribute__((__format__(__printf__, 2, 3)));
+void warning(const char *, ...) ATTR_FORMAT(1, 2);
+void fatal(int, const char *, ...) ATTR_FORMAT(2, 3);
 
 void warning(const char *fmt, ...)
 {
@@ -417,6 +421,15 @@ static JSValue js_evalScript(JSContext *ctx, JSValue this_val,
     return ret;
 }
 
+static JSValue add_helpers1(JSContext* ctx);
+
+static int64_t get_clock_ms(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000 + (ts.tv_nsec / 1000000);
+}
+
 #ifdef CONFIG_AGENT
 
 #include <pthread.h>
@@ -438,7 +451,6 @@ typedef struct {
     char *str;
 } AgentReport;
 
-static JSValue add_helpers1(JSContext *ctx);
 static void add_helpers(JSContext *ctx);
 
 static pthread_mutex_t agent_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -646,13 +658,6 @@ static JSValue js_agent_sleep(JSContext *ctx, JSValue this_val,
         return JS_EXCEPTION;
     usleep(duration * 1000);
     return JS_UNDEFINED;
-}
-
-static int64_t get_clock_ms(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * 1000 + (ts.tv_nsec / 1000000);
 }
 
 static JSValue js_agent_monotonicNow(JSContext *ctx, JSValue this_val,

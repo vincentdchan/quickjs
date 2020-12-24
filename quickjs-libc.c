@@ -28,22 +28,22 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
-#include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/time.h>
 #include <time.h>
 #include <signal.h>
 #include <limits.h>
 #include <sys/stat.h>
-#include <dirent.h>
 #if defined(_WIN32)
 #include <windows.h>
 #include <conio.h>
-#include <utime.h>
+#define PATH_MAX 260
 #else
+#include <unistd.h>
 #include <dlfcn.h>
 #include <termios.h>
+#include <dirent.h>
+#include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 
@@ -2403,6 +2403,73 @@ static JSValue js_os_mkdir(JSContext *ctx, JSValueConst this_val,
     return JS_NewInt32(ctx, ret);
 }
 
+#if defined(_WIN32)
+/* return [array, errorcode] */
+static JSValue js_os_readdir(JSContext* ctx, JSValueConst this_val,
+    int argc, JSValueConst* argv)
+{
+    char path_buffer[PATH_MAX + 3];
+
+    const char* path;
+    JSValue obj;
+    int err = 0;
+    uint32_t len = 0;
+    uint32_t str_size;
+
+    path = JS_ToCStringLen(ctx, &str_size, argv[0]);
+    if (!path)
+        return JS_EXCEPTION;
+
+    if (str_size >= PATH_MAX) {
+        JS_FreeCString(ctx, path);
+        return JS_ThrowInternalError("path too long: %u", str_size);
+    }
+
+    uint32_t index;
+    memcpy(path_buffer, path, str_size);
+    if (path_buffer[str_size - 1] == '\\') {
+        index = str_size;
+    } else {
+        path_buffer[str_size] = '\\';
+        index = str_size + 1;
+    }
+    path_buffer[index++] = '*';
+
+    obj = JS_NewArray(ctx);
+    if (JS_IsException(obj)) {
+        JS_FreeCString(ctx, path);
+        return JS_EXCEPTION;
+    }
+
+    WIN32_FIND_DATA FindFileData;
+    HANDLE hFind = FindFirstFileA(path_buffer, &FindFileData);
+
+    if (hFind == INVALID_HANDLE_VALUE)
+        err = GetLastError();
+    else
+        err = 0;
+
+    JS_FreeCString(ctx, path);
+
+    JS_DefinePropertyValueUint32(ctx, obj, len++,
+        JS_NewString(ctx, FindFileData.cFileName),
+        JS_PROP_C_W_E);
+
+    while (err != 0) {
+        BOOL bl = FindNextFileA(hFind, &FindFileData);
+        if (!bl) {
+            err = GetLastError();
+            break;
+        }
+        JS_DefinePropertyValueUint32(ctx, obj, len++,
+            JS_NewString(ctx, FindFileData.cFileName),
+            JS_PROP_C_W_E);
+    }
+    FindClose(hFind);
+done:
+    return make_obj_error(ctx, obj, err);
+}
+#else
 /* return [array, errorcode] */
 static JSValue js_os_readdir(JSContext *ctx, JSValueConst this_val,
                              int argc, JSValueConst *argv)
@@ -2446,6 +2513,7 @@ static JSValue js_os_readdir(JSContext *ctx, JSValueConst this_val,
  done:
     return make_obj_error(ctx, obj, err);
 }
+#endif
 
 #if !defined(_WIN32)
 static int64_t timespec_to_ms(const struct timespec *tv)
@@ -2553,7 +2621,6 @@ static void ms_to_timeval(struct timeval *tv, uint64_t v)
     tv->tv_sec = v / 1000;
     tv->tv_usec = (v % 1000) * 1000;
 }
-#endif
 
 static JSValue js_os_utimes(JSContext *ctx, JSValueConst this_val,
                             int argc, JSValueConst *argv)
@@ -2569,24 +2636,16 @@ static JSValue js_os_utimes(JSContext *ctx, JSValueConst this_val,
     path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
-#if defined(_WIN32)
-    {
-        struct _utimbuf times;
-        times.actime = atime / 1000;
-        times.modtime = mtime / 1000;
-        ret = js_get_errno(_utime(path, &times));
-    }
-#else
     {
         struct timeval times[2];
         ms_to_timeval(&times[0], atime);
         ms_to_timeval(&times[1], mtime);
         ret = js_get_errno(utimes(path, times));
     }
-#endif
     JS_FreeCString(ctx, path);
     return JS_NewInt32(ctx, ret);
 }
+#endif
 
 #if !defined(_WIN32)
 
@@ -3583,6 +3642,7 @@ static const JSCFunctionListEntry js_os_funcs[] = {
     JS_CFUNC_DEF("chdir", 0, js_os_chdir ),
     JS_CFUNC_DEF("mkdir", 1, js_os_mkdir ),
     JS_CFUNC_DEF("readdir", 1, js_os_readdir ),
+#if !defined(_WIN32)
     /* st_mode constants */
     OS_FLAG(S_IFMT),
     OS_FLAG(S_IFIFO),
@@ -3590,15 +3650,14 @@ static const JSCFunctionListEntry js_os_funcs[] = {
     OS_FLAG(S_IFDIR),
     OS_FLAG(S_IFBLK),
     OS_FLAG(S_IFREG),
-#if !defined(_WIN32)
     OS_FLAG(S_IFSOCK),
     OS_FLAG(S_IFLNK),
     OS_FLAG(S_ISGID),
     OS_FLAG(S_ISUID),
 #endif
     JS_CFUNC_MAGIC_DEF("stat", 1, js_os_stat, 0 ),
-    JS_CFUNC_DEF("utimes", 3, js_os_utimes ),
 #if !defined(_WIN32)
+    JS_CFUNC_DEF("utimes", 3, js_os_utimes),
     JS_CFUNC_MAGIC_DEF("lstat", 1, js_os_stat, 1 ),
     JS_CFUNC_DEF("realpath", 1, js_os_realpath ),
     JS_CFUNC_DEF("symlink", 2, js_os_symlink ),

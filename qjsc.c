@@ -27,10 +27,12 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
-#include <unistd.h>
 #include <errno.h>
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include "getopt.h"
+#else
 #include <sys/wait.h>
+#include <unistd.h>
 #endif
 
 #include "cutils.h"

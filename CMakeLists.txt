@@ -23,9 +23,14 @@ target_compile_definitions(${PROJECT_NAME}
         CONFIG_VERSION="${BUILD_VERSION}"
         )
 
-add_executable(qjsc
-        ${SOURCES_ROOT}/qjsc.c
-        )
+set(QJSC_SOURCES ${SOURCES_ROOT}/qjsc.c)
+
+IF (WIN32)
+list(APPEND QJSC_SOURCES ${SOURCES_ROOT}/getopt.c)
+list(APPEND QJSC_SOURCES ${SOURCES_ROOT}/win_patch.c)
+ENDIF()
+
+add_executable(qjsc ${QJSC_SOURCES})
 
 target_link_libraries(qjsc PRIVATE quickjs)
 
@@ -34,9 +39,13 @@ target_compile_definitions(qjsc
         CONFIG_VERSION="${BUILD_VERSION}"
         )
 
-add_executable(qjs
-        ${SOURCES_ROOT}/qjsc.c
-        )
+set(QJS_SOURCES ${SOURCES_ROOT}/qjs.c)
+
+IF (WIN32)
+list(APPEND QJS_SOURCES ${SOURCES_ROOT}/win_patch.c)
+ENDIF()
+
+add_executable(qjs ${QJS_SOURCES})
 
 target_link_libraries(qjs PRIVATE quickjs)
 
@@ -45,9 +54,13 @@ target_compile_definitions(qjs
         CONFIG_VERSION="${BUILD_VERSION}"
         )
 
-add_executable(run-test262
-        ${SOURCES_ROOT}/run-test262.c
-        )
+set(TEST262_SOURCES ${SOURCES_ROOT}/run-test262.c)
+
+IF (WIN32)
+list(APPEND TEST262_SOURCES ${SOURCES_ROOT}/win_patch.c)
+ENDIF()
+
+add_executable(run-test262 ${TEST262_SOURCES})
 
 target_link_libraries(run-test262 PRIVATE quickjs)
 
