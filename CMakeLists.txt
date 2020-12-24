@@ -23,14 +23,14 @@ target_compile_definitions(${PROJECT_NAME}
         CONFIG_VERSION="${BUILD_VERSION}"
         )
 
-set(QJSC_SOURCE ${SOURCES_ROOT}/qjsc.c)
+set(QJSC_SOURCES ${SOURCES_ROOT}/qjsc.c)
 
 IF (WIN32)
-list(APPEND QJSC_SOURCE ${SOURCES_ROOT}/getopt.c)
-list(APPEND QJSC_SOURCE ${SOURCES_ROOT}/win_patch.c)
+list(APPEND QJSC_SOURCES ${SOURCES_ROOT}/getopt.c)
+list(APPEND QJSC_SOURCES ${SOURCES_ROOT}/win_patch.c)
 ENDIF()
 
-add_executable(qjsc ${QJSC_SOURCE})
+add_executable(qjsc ${QJSC_SOURCES})
 
 target_link_libraries(qjsc PRIVATE quickjs)
 
@@ -39,9 +39,13 @@ target_compile_definitions(qjsc
         CONFIG_VERSION="${BUILD_VERSION}"
         )
 
-add_executable(qjs
-        ${SOURCES_ROOT}/qjsc.c
-        )
+set(QJS_SOURCES ${SOURCES_ROOT}/qjsc.c)
+
+IF (WIN32)
+list(APPEND QJSC_SOURCES ${SOURCES_ROOT}/getopt.c)
+ENDIF()
+
+add_executable(qjs ${QJSC_SOURCES})
 
 target_link_libraries(qjs PRIVATE quickjs)
 

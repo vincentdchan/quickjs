@@ -128,3 +128,83 @@ int clock_gettime(clockid_t clock_id, struct timespec* tp)
 
     return -(EINVAL);
 }
+
+int WStringToUTF8(const WCHAR* wstr, char* buffer, uint32_t buffer_size)
+{
+    uint32_t len = wcslen(wstr);
+    return WideCharToMultiByte(CP_UTF8, 0, wstr, len, buffer,
+           buffer_size, NULL, NULL);
+}
+
+int UTF8ToWString(const char* bytes, WCHAR* buffer, uint32_t buffer_size)
+{
+    uint32_t str_size = strlen(bytes);
+    return MultiByteToWideChar(CP_UTF8, 0, bytes, str_size, buffer, buffer_size);
+}
+
+static int nt_feed_data(const WCHAR* parent, const WCHAR* filename, int (*fn)(const char*, const struct stat* ptr, int flag)) {
+    uint32_t parent_len = wcslen(parent);
+    uint32_t filename_len = wcslen(filename);
+    if (parent_len + filename_len + 1 >= _MAX_PATH) {
+        return -1;
+    }
+
+    WCHAR wide_buffer[_MAX_PATH];
+    memset(wide_buffer, 0, sizeof(WCHAR) * _MAX_PATH);
+    wcscpy(wide_buffer, parent);
+    uint32_t index = parent_len;
+    wide_buffer[index++] = '\\';
+    wcscpy(wide_buffer + index, filename);
+    
+    char buffer[_MAX_PATH];
+    memset(buffer, 0, _MAX_PATH);
+    WStringToUTF8(wide_buffer, buffer, MAX_PATH);
+
+    int ec = fn(buffer, NULL, 0);
+    if (ec < 0) {
+        return ec;
+    }
+
+    return 0;
+}
+
+int nt_ftw(const WCHAR* path, int (*fn)(const char*, const struct stat* ptr, int flag), int depth) {
+    WIN32_FIND_DATAW info;
+    HANDLE hFind = FindFirstFileW(path, &info);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+
+    int ec = nt_feed_data(path, info.cFileName, fn);
+    if (ec < 0) {
+        FindClose(hFind);
+        return ec;
+    }
+
+    while (1) {
+        hFind = FindNextFileW(hFind, &info);
+        if (hFind == INVALID_HANDLE_VALUE) {
+            break;
+        }
+
+        ec = nt_feed_data(path, info.cFileName, fn);
+        if (ec < 0) {
+            FindClose(hFind);
+            return ec;
+        }
+    }
+
+    FindClose(hFind);
+    return 0;
+}
+
+int
+ftw(const char* path, int (*fn)(const char*, const struct stat* ptr, int flag), int depth) {
+    WCHAR buffer[_MAX_PATH];
+    memset(buffer, 0, sizeof(WCHAR) * _MAX_PATH);
+    if (UTF8ToWString(path, buffer, _MAX_PATH) != 0) {
+        return -1;
+    }
+
+    return nt_ftw(buffer, fn, depth);
+}

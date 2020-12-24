@@ -34,4 +34,7 @@ typedef enum {
 #define CLOCK_THREAD_CPUTIME_ID _CLOCK_THREAD_CPUTIME_ID
 } clockid_t;
 
+int
+ftw(const char* path, int (*fn)(const char*, const struct stat* ptr, int flag), int depth);
+
 #endif

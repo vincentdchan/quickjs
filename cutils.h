@@ -41,7 +41,6 @@
 #define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))
 #define likely(x)       !!(x)
 #define unlikely(x)     !!(x)
-#define alloca(x) _alloca(x)
 #define popen(x) _open(x)
 #define pclose(x) _pclose(x)
 #define force_inline __forceinline
