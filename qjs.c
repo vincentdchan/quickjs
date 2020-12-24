@@ -520,11 +520,9 @@ int main(int argc, char **argv)
             if (eval_file(ctx, filename, module))
                 goto fail;
         }
-#if !defined(_WIN32)
         if (interactive) {
             js_std_eval_binary(ctx, qjsc_repl, qjsc_repl_size, 0);
         }
-#endif
         js_std_loop(ctx);
     }
     
