@@ -2,6 +2,14 @@
 #include "win_patch.h"
 #include <windows.h>
 
+#define POW10_7                 10000000
+#define POW10_9                 1000000000
+
+/* Number of 100ns-seconds between the beginning of the Windows epoch
+ * (Jan. 1, 1601) and the Unix epoch (Jan. 1, 1970)
+ */
+#define DELTA_EPOCH_IN_100NS    INT64_C(116444736000000000)
+
 #define FILETIME_1970 116444736000000000ull /* seconds between 1/1/1601 and 1/1/1970 */
 #define HECTONANOSEC_PER_SEC 10000000ull
 
@@ -52,4 +60,71 @@ int gettimeofday(struct timeval* p, void* z)
     p->tv_sec = tp.tv_sec;
     p->tv_usec = (tp.tv_nsec / 1000);
     return 0;
+}
+
+int clock_gettime(clockid_t clock_id, struct timespec* tp)
+{
+    unsigned __int64 t;
+    LARGE_INTEGER pf, pc;
+    union {
+        unsigned __int64 u64;
+        FILETIME ft;
+    }  ct, et, kt, ut;
+
+    switch (clock_id) {
+    case CLOCK_REALTIME:
+    {
+        GetSystemTimeAsFileTime(&ct.ft);
+        t = ct.u64 - DELTA_EPOCH_IN_100NS;
+        tp->tv_sec = t / POW10_7;
+        tp->tv_nsec = ((int)(t % POW10_7)) * 100;
+
+        return 0;
+    }
+
+    case CLOCK_MONOTONIC:
+    {
+        if (QueryPerformanceFrequency(&pf) == 0)
+            return -(EINVAL);
+
+        if (QueryPerformanceCounter(&pc) == 0)
+            return -(EINVAL);
+
+        tp->tv_sec = pc.QuadPart / pf.QuadPart;
+        tp->tv_nsec = (int)(((pc.QuadPart % pf.QuadPart) * POW10_9 + (pf.QuadPart >> 1)) / pf.QuadPart);
+        if (tp->tv_nsec >= POW10_9) {
+            tp->tv_sec++;
+            tp->tv_nsec -= POW10_9;
+        }
+
+        return 0;
+    }
+
+    case CLOCK_PROCESS_CPUTIME_ID:
+    {
+        if (0 == GetProcessTimes(GetCurrentProcess(), &ct.ft, &et.ft, &kt.ft, &ut.ft))
+            return -(EINVAL);
+        t = kt.u64 + ut.u64;
+        tp->tv_sec = t / POW10_7;
+        tp->tv_nsec = ((int)(t % POW10_7)) * 100;
+
+        return 0;
+    }
+
+    case CLOCK_THREAD_CPUTIME_ID:
+    {
+        if (0 == GetThreadTimes(GetCurrentThread(), &ct.ft, &et.ft, &kt.ft, &ut.ft))
+            return -(EINVAL);
+        t = kt.u64 + ut.u64;
+        tp->tv_sec = t / POW10_7;
+        tp->tv_nsec = ((int)(t % POW10_7)) * 100;
+
+        return 0;
+    }
+
+    default:
+        break;
+    }
+
+    return -(EINVAL);
 }

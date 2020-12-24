@@ -50,9 +50,13 @@ target_compile_definitions(qjs
         CONFIG_VERSION="${BUILD_VERSION}"
         )
 
-add_executable(run-test262
-        ${SOURCES_ROOT}/run-test262.c
-        )
+set(TEST262_SOURCES ${SOURCES_ROOT}/run-test262.c)
+
+IF (WIN32)
+list(APPEND TEST262_SOURCES ${SOURCES_ROOT}/win_patch.c)
+ENDIF()
+
+add_executable(run-test262 ${TEST262_SOURCES})
 
 target_link_libraries(run-test262 PRIVATE quickjs)
 

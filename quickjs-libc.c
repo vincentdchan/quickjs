@@ -2621,7 +2621,6 @@ static void ms_to_timeval(struct timeval *tv, uint64_t v)
     tv->tv_sec = v / 1000;
     tv->tv_usec = (v % 1000) * 1000;
 }
-#endif
 
 static JSValue js_os_utimes(JSContext *ctx, JSValueConst this_val,
                             int argc, JSValueConst *argv)
@@ -2637,22 +2636,16 @@ static JSValue js_os_utimes(JSContext *ctx, JSValueConst this_val,
     path = JS_ToCString(ctx, argv[0]);
     if (!path)
         return JS_EXCEPTION;
-#if defined(_WIN32)
-    {
-        assert(0);
-        ret = 0;
-    }
-#else
     {
         struct timeval times[2];
         ms_to_timeval(&times[0], atime);
         ms_to_timeval(&times[1], mtime);
         ret = js_get_errno(utimes(path, times));
     }
-#endif
     JS_FreeCString(ctx, path);
     return JS_NewInt32(ctx, ret);
 }
+#endif
 
 #if !defined(_WIN32)
 
@@ -3663,8 +3656,8 @@ static const JSCFunctionListEntry js_os_funcs[] = {
     OS_FLAG(S_ISUID),
 #endif
     JS_CFUNC_MAGIC_DEF("stat", 1, js_os_stat, 0 ),
-    JS_CFUNC_DEF("utimes", 3, js_os_utimes ),
 #if !defined(_WIN32)
+    JS_CFUNC_DEF("utimes", 3, js_os_utimes),
     JS_CFUNC_MAGIC_DEF("lstat", 1, js_os_stat, 1 ),
     JS_CFUNC_DEF("realpath", 1, js_os_realpath ),
     JS_CFUNC_DEF("symlink", 2, js_os_symlink ),
