@@ -50,7 +50,7 @@
 typedef SSIZE_T ssize_t;
 #else
 #define ATTR_FORMAT(N, M) __attribute__((format(printf, N, M)))
-#deinfe ATTR_UNUSED __attribute((unused))
+#define ATTR_UNUSED __attribute((unused))
 #define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
