@@ -39,13 +39,13 @@ target_compile_definitions(qjsc
         CONFIG_VERSION="${BUILD_VERSION}"
         )
 
-set(QJS_SOURCES ${SOURCES_ROOT}/qjsc.c)
+set(QJS_SOURCES ${SOURCES_ROOT}/qjs.c)
 
 IF (WIN32)
-list(APPEND QJSC_SOURCES ${SOURCES_ROOT}/getopt.c)
+list(APPEND QJS_SOURCES ${SOURCES_ROOT}/win_patch.c)
 ENDIF()
 
-add_executable(qjs ${QJSC_SOURCES})
+add_executable(qjs ${QJS_SOURCES})
 
 target_link_libraries(qjs PRIVATE quickjs)
 
