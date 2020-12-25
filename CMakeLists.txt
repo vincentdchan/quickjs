@@ -17,7 +17,11 @@ set(SOURCES
         ${SOURCES_ROOT}/quickjs-libc.c
         )
 
-add_library(quickjs ${SOURCES})
+IF (WIN32)
+list(APPEND SOURCES ${SOURCES_ROOT}/win_patch.c)
+ENDIF()
+
+add_library(quickjs STATIC ${SOURCES})
 target_compile_definitions(${PROJECT_NAME}
         PRIVATE
         CONFIG_VERSION="${BUILD_VERSION}"

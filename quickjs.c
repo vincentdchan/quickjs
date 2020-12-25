@@ -23809,7 +23809,8 @@ static int js_parse_destructuring_element(JSParseState *s, int tok, int is_arg,
                                         int hasval, int has_ellipsis,
                                         BOOL allow_initializer)
 {
-    int label_parse, label_assign, label_done, label_lvalue, depth_lvalue;
+    int label_parse, label_assign, label_done, depth_lvalue;
+    int label_lvalue = -1;
     int start_addr, assign_addr;
     JSAtom prop_name, var_name;
     int opcode, scope, tok1, skip_bits;

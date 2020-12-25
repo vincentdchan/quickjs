@@ -149,6 +149,7 @@ static __inline int clz32(unsigned int a)
     }
 }
 
+#if defined(_WIN64)
 static __inline int clz64(uint64_t a)
 {
     DWORD leading_zero = 0;
@@ -163,6 +164,7 @@ static __inline int clz64(uint64_t a)
         return 64;
     }
 }
+#endif
 #else
 
 /* WARNING: undefined if a = 0 */
@@ -195,6 +197,7 @@ static inline int ctz32(unsigned int a)
     }
 }
 
+#if defined(_WIN64)
 static inline int ctz64(uint64_t a)
 {
     DWORD trailing_zero = 0;
@@ -209,6 +212,7 @@ static inline int ctz64(uint64_t a)
         return 64;
     }
 }
+#endif
 #else
 
 /* WARNING: undefined if a = 0 */
