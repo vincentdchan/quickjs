@@ -456,6 +456,7 @@ test: qjs$(EXE)
 	$(WINE) ./qjs$(EXE) tests/test_worker.js
 ifndef CONFIG_WIN32
 	$(WINE) ./qjs$(EXE) tests/test_std.js
+	$(WINE) ./qjs$(EXE) tests/test_rw_handler.js
 endif
 ifdef CONFIG_SHARED_LIBS
 	$(WINE) ./qjs$(EXE) tests/test_bjson.js
