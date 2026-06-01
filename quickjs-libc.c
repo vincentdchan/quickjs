@@ -3305,12 +3305,12 @@ static JSValue js_os_exec(JSContext *ctx, JSValueConst this_val,
             if (chdir(cwd) < 0)
                 _exit(127);
         }
-        if (uid != -1) {
-            if (setuid(uid) < 0)
-                _exit(127);
-        }
         if (gid != -1) {
             if (setgid(gid) < 0)
+                _exit(127);
+        }
+        if (uid != -1) {
+            if (setuid(uid) < 0)
                 _exit(127);
         }
 
