@@ -39,9 +39,6 @@
 #include "list.h"
 #include "quickjs-libc.h"
 
-/* enable test262 thread support to test SharedArrayBuffer and Atomics */
-#define CONFIG_AGENT
-
 #define CMD_NAME "run-test262"
 
 typedef struct namelist_t {
@@ -433,8 +430,6 @@ static JSValue js_evalScript(JSContext *ctx, JSValue this_val,
     return ret;
 }
 
-#ifdef CONFIG_AGENT
-
 #include <pthread.h>
 
 typedef struct {
@@ -747,7 +742,6 @@ static JSValue js_new_agent(JSContext *ctx)
                                countof(js_agent_funcs));
     return agent;
 }
-#endif
 
 static JSValue js_createRealm(JSContext *ctx, JSValue this_val,
                               int argc, JSValue *argv)
@@ -798,9 +792,7 @@ static JSValue add_helpers1(JSContext *ctx)
     JS_SetPropertyStr(ctx, obj262, "codePointRange",
                       JS_NewCFunction(ctx, js_string_codePointRange,
                                       "codePointRange", 2));
-#ifdef CONFIG_AGENT
     JS_SetPropertyStr(ctx, obj262, "agent", js_new_agent(ctx));
-#endif
 
     JS_SetPropertyStr(ctx, obj262, "global",
                       JS_DupValue(ctx, global_obj));
@@ -1630,9 +1622,7 @@ int run_test_buf(const char *filename, const char *harness, namelist_t *ip,
     if (dump_memory) {
         update_stats(rt, filename);
     }
-#ifdef CONFIG_AGENT
     js_agent_free(ctx);
-#endif
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
 
@@ -1958,9 +1948,7 @@ int run_test262_harness_test(const char *filename, BOOL is_module, BOOL can_bloc
         JS_FreeValue(ctx, promise);
     }
     free(buf);
-#ifdef CONFIG_AGENT
     js_agent_free(ctx);
-#endif
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
     return ret_code;
