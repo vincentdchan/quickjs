@@ -8,6 +8,7 @@
 - added added Map and WeakMap upsert methods
 - added Math.sumPrecise()
 - added regexp duplicate named groups
+- added base64 and hexadecimal encodings for Uint8Array
 - misc bug fixes
 
 2025-09-13:
