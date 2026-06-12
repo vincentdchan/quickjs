@@ -33,6 +33,7 @@
 #include "win_patch.h"
 #elif defined(_WIN32)
 #include <windows.h>
+#include <sys/time.h>
 #else
 #include <sys/time.h>
 #endif

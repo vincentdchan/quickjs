@@ -31,9 +31,15 @@
 #include <ctype.h>
 #include <errno.h>
 #include <time.h>
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #include <windows.h>
+#if defined(_MSC_VER)
 #include "win_patch.h"
+#else
+#include <unistd.h>
+#include <dirent.h>
+#include <ftw.h>
+#endif
 #else
 #include <unistd.h>
 #include <dirent.h>

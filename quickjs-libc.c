@@ -39,7 +39,14 @@
 #include <conio.h>
 #include <direct.h>
 #include <io.h>
+#include <process.h>
+#ifndef _MSC_VER
+#include <sys/time.h>
+#endif
 #include <sys/utime.h>
+#ifdef _MSC_VER
+#define getpid _getpid
+#endif
 #define PATH_MAX 260
 #ifndef S_ISDIR
 #define S_ISDIR(m) (((m) & _S_IFDIR) == _S_IFDIR)
@@ -2763,7 +2770,7 @@ static JSValue js_os_readdir(JSContext* ctx, JSValueConst this_val,
 
     if (str_size >= PATH_MAX) {
         JS_FreeCString(ctx, path);
-        return JS_ThrowInternalError(ctx, "path too long: %zu", str_size);
+        return JS_ThrowInternalError(ctx, "path too long");
     }
 
     uint32_t index;

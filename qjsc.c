@@ -29,7 +29,11 @@
 #include <assert.h>
 #include <errno.h>
 #if defined(_WIN32)
+#include <process.h>
 #include "getopt.h"
+#ifdef _MSC_VER
+#define getpid _getpid
+#endif
 #else
 #include <sys/wait.h>
 #include <unistd.h>
