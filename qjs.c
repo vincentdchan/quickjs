@@ -154,10 +154,7 @@ static size_t js_trace_malloc_usable_size(const void *ptr)
 }
 
 static void
-#ifdef _WIN32
-/* mingw printf is used */
-ATTR_FORMAT(2, 3)
-#else
+#ifndef _WIN32
 ATTR_FORMAT(2, 3)
 #endif
     js_trace_malloc_printf(JSMallocState *s, const char *fmt, ...)

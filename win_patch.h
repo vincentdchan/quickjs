@@ -4,6 +4,7 @@
 
 #include <time.h>
 #include <Windows.h>
+#include <sys/stat.h>
 #include "inttypes.h"
 
 struct timezone {

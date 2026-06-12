@@ -28,9 +28,11 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 #include <windows.h>
 #include "win_patch.h"
+#elif defined(_WIN32)
+#include <windows.h>
 #else
 #include <sys/time.h>
 #endif
@@ -1390,7 +1392,7 @@ static void js_c_function_data_mark(JSRuntime *rt, JSValueConst val,
 static JSValue js_c_function_data_call(JSContext *ctx, JSValueConst func_obj,
                                        JSValueConst this_val,
                                        int argc, JSValueConst *argv, int flags);
-static JSAtom js_symbol_to_atom(JSContext *ctx, JSValue val);
+static JSAtom js_symbol_to_atom(JSContext *ctx, JSValueConst val);
 static void add_gc_object(JSRuntime *rt, JSGCObjectHeader *h,
                           JSGCObjectTypeEnum type);
 static void remove_gc_object(JSGCObjectHeader *h);
@@ -9011,7 +9013,7 @@ int JS_HasProperty(JSContext *ctx, JSValueConst obj, JSAtom prop)
 }
 
 /* val must be a symbol */
-static JSAtom js_symbol_to_atom(JSContext *ctx, JSValue val)
+static JSAtom js_symbol_to_atom(JSContext *ctx, JSValueConst val)
 {
     JSAtomStruct *p = JS_VALUE_GET_PTR(val);
     return js_get_atom_index(ctx->rt, p);
@@ -17629,7 +17631,7 @@ static JSValue js_call_c_function(JSContext *ctx, JSValueConst func_obj,
     rt->current_stack_frame = sf;
     ctx = p->u.cfunc.realm; /* change the current realm */
     sf->js_mode = 0;
-    sf->cur_func = func_obj;
+    sf->cur_func = JS_VALUE_CONST_TO_VALUE(func_obj);
     sf->arg_count = argc;
     arg_buf = argv;
 
@@ -17884,7 +17886,7 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
     sf->js_mode = b->js_mode;
     arg_buf = argv;
     sf->arg_count = argc;
-    sf->cur_func = func_obj;
+    sf->cur_func = JS_VALUE_CONST_TO_VALUE(func_obj);
     var_refs = p->u.func.var_refs;
 
     local_buf = alloca(alloca_size);
@@ -43052,8 +43054,12 @@ static int64_t JS_FlattenIntoArray(JSContext *ctx, JSValueConst target,
         if (!present)
             continue;
         if (!JS_IsUndefined(mapperFunction)) {
-            JSValueConst args[3] = { element, JS_NewInt64(ctx, sourceIndex), source };
-            element = JS_Call(ctx, mapperFunction, thisArg, 3, args);
+            JSValue args[3] = {
+                element,
+                JS_NewInt64(ctx, sourceIndex),
+                JS_VALUE_CONST_TO_VALUE(source),
+            };
+            element = JS_Call(ctx, mapperFunction, thisArg, 3, (JSValueConst *)args);
             JS_FreeValue(ctx, args[0]);
             JS_FreeValue(ctx, args[1]);
             if (JS_IsException(element))
@@ -51555,7 +51561,7 @@ static JSValue js_weakref_new(JSContext *ctx, JSValueConst val)
     } else {
         assert(JS_IsUndefined(val));
     }
-    return val;
+    return JS_VALUE_CONST_TO_VALUE(val);
 }
 
 #define MAGIC_SET (1 << 0)
@@ -51685,7 +51691,7 @@ static JSValue map_normalize_key(JSContext *ctx, JSValue key)
 
 static JSValueConst map_normalize_key_const(JSContext *ctx, JSValueConst key)
 {
-    return map_normalize_key(ctx, key);
+    return map_normalize_key(ctx, JS_VALUE_CONST_TO_VALUE(key));
 }
 
 /* hash multipliers, same as the Linux kernel (see Knuth vol 3,
@@ -52118,7 +52124,7 @@ static JSValue js_map_forEach(JSContext *ctx, JSValueConst this_val,
                 args[0] = args[1];
             else
                 args[0] = JS_DupValue(ctx, mr->value);
-            args[2] = this_val;
+            args[2] = JS_VALUE_CONST_TO_VALUE(this_val);
             ret = JS_Call(ctx, func, this_arg, 3, (JSValueConst *)args);
             JS_FreeValue(ctx, args[0]);
             if (!magic)
@@ -58560,7 +58566,7 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
     struct TA_sort_context *psc = opaque;
     JSContext *ctx = psc->ctx;
     uint32_t a_idx, b_idx;
-    JSValueConst argv[2];
+    JSValue argv[2];
     JSValue res;
     int cmp;
     
@@ -58574,7 +58580,7 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
                               a_idx * (size_t)psc->elt_size);
         argv[1] = psc->getfun(ctx, psc->array +
                               b_idx * (size_t)(psc->elt_size));
-        res = JS_Call(ctx, psc->cmp, JS_UNDEFINED, 2, argv);
+        res = JS_Call(ctx, psc->cmp, JS_UNDEFINED, 2, (JSValueConst *)argv);
         if (JS_IsException(res)) {
             psc->exception = 1;
             goto done;
