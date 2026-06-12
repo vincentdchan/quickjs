@@ -2,7 +2,7 @@ function assert(actual, expected, message) {
     if (arguments.length == 1)
         expected = true;
 
-    if (actual === expected)
+    if (Object.is(actual, expected))
         return;
 
     if (actual !== null && expected !== null
@@ -68,10 +68,10 @@ function test_op1()
 
     r = 1 << 31;
     assert(r, -2147483648, "1 << 31 === -2147483648");
-    
+
     r = 1 << 32;
     assert(r, 1, "1 << 32 === 1");
-    
+
     r = (1 << 31) < 0;
     assert(r, true, "(1 << 31) < 0 === true");
 
@@ -113,13 +113,14 @@ function test_cvt()
     assert(("12345" | 0) === 12345);
     assert(("0x12345" | 0) === 0x12345);
     assert(((4294967296 * 3 - 4) | 0) === -4);
-    
+
     assert(("12345" >>> 0) === 12345);
     assert(("0x12345" >>> 0) === 0x12345);
     assert((NaN >>> 0) === 0);
     assert((Infinity >>> 0) === 0);
     assert(((-Infinity) >>> 0) === 0);
     assert(((4294967296 * 3 - 4) >>> 0) === (4294967296 - 4));
+    assert((19686109595169230000).toString() === "19686109595169230000");
 }
 
 function test_eq()
@@ -140,7 +141,7 @@ function test_eq()
 function test_inc_dec()
 {
     var a, r;
-    
+
     a = 1;
     r = a++;
     assert(r === 1 && a === 2, true, "++");
@@ -168,19 +169,19 @@ function test_inc_dec()
     a = [true];
     a[0]++;
     assert(a[0], 2, "++");
-    
+
     a = {x:true};
     r = a.x++;
     assert(r === 1 && a.x === 2, true, "++");
-    
+
     a = {x:true};
     r = a.x--;
     assert(r === 1 && a.x === 0, true, "--");
-    
+
     a = [true];
     r = a[0]++;
     assert(r === 1 && a[0] === 2, true, "++");
-    
+
     a = [true];
     r = a[0]--;
     assert(r === 1 && a[0] === 0, true, "--");
@@ -212,7 +213,7 @@ function test_op2()
     assert((typeof Object), "function", "typeof");
     assert((typeof null), "object", "typeof");
     assert((typeof unknown_var), "undefined", "typeof");
-    
+
     a = {x: 1, if: 2, async: 3};
     assert(a.if === 2);
     assert(a.async === 3);
@@ -225,7 +226,7 @@ function test_delete()
     a = {x: 1, y: 1};
     assert((delete a.x), true, "delete");
     assert(("x" in a), false, "delete");
-    
+
     /* the following are not tested by test262 */
     assert(delete "abc"[100], true);
 
@@ -245,6 +246,15 @@ function test_delete()
         err = (e instanceof ReferenceError);
     }
     assert(err, true, "delete");
+}
+
+function test_constructor()
+{
+    function *G() {}
+    let ex
+    try { new G() } catch (ex_) { ex = ex_ }
+    assert(ex instanceof TypeError)
+    assert(ex.message, "G is not a constructor")
 }
 
 function test_prototype()
@@ -310,7 +320,7 @@ function test_class()
     o = new C();
     assert(o.f() === 1);
     assert(o.x === 10);
-    
+
     assert(D.F() === -1);
     assert(D.G() === -2);
     assert(D.H() === -1);
@@ -325,6 +335,22 @@ function test_class()
     /* test class name scope */
     var E1 = class E { static F() { return E; } };
     assert(E1 === E1.F());
+
+    class S {
+        static x = 42;
+        static y = S.x;
+        static z = this.x;
+    }
+    assert(S.x === 42);
+    assert(S.y === 42);
+    assert(S.z === 42);
+
+    class P {
+        get = () => "123";
+        static() { return 42; }
+    }
+    assert(new P().get() === "123");
+    assert(new P().static() === 42);
 };
 
 function test_template()
@@ -351,9 +377,10 @@ function test_template_skip()
 
 function test_object_literal()
 {
-    var x = 0, get = 1, set = 2; async = 3;
-    a = { get: 2, set: 3, async: 4 };
-    assert(JSON.stringify(a), '{"get":2,"set":3,"async":4}');
+    var x = 0, get = 1, set = 2, async = 3;
+    a = { get: 2, set: 3, async: 4, get a(){ return this.get} };
+    assert(JSON.stringify(a), '{"get":2,"set":3,"async":4,"a":2}');
+    assert(a.a === 2);
 
     a = { x, get, set, async };
     assert(JSON.stringify(a), '{"x":0,"get":1,"set":2,"async":3}');
@@ -364,7 +391,7 @@ function test_regexp_skip()
     var a, b;
     [a, b = /abc\(/] = [1];
     assert(a === 1);
-    
+
     [a, b =/abc\(/] = [2];
     assert(a === 2);
 }
@@ -378,6 +405,24 @@ function test_labels()
         x: { break x; }
     with ({}) x: { break x; };
     while (0) x: { break x; };
+}
+
+function test_labels2()
+{
+    while (1) label: break
+    var i = 0
+    while (i < 3) label: {
+        if (i > 0)
+            break
+        i++
+    }
+    assert(i, 1)
+    for (;;) label: break
+    for (i = 0; i < 3; i++) label: {
+        if (i > 0)
+            break
+    }
+    assert(i, 1)
 }
 
 function test_destructuring()
@@ -409,9 +454,13 @@ function test_argument_scope()
 {
     var f;
     var c = "global";
-    
-    f = function(a = eval("var arguments")) {};
-    assert_throws(SyntaxError, f);
+
+    (function() {
+        "use strict";
+        // XXX: node only throws in strict mode
+        f = function(a = eval("var arguments")) {};
+        assert_throws(SyntaxError, f);
+    })();
 
     f = function(a = eval("1"), b = arguments[0]) { return b; };
     assert(f(12), 12);
@@ -480,7 +529,7 @@ function test_function_expr_name()
 
     /* non strict mode test : assignment to the function name silently
        fails */
-    
+
     f = function myfunc() {
         myfunc = 1;
         return myfunc;
@@ -501,7 +550,7 @@ function test_function_expr_name()
         return myfunc;
     };
     assert(f(), f);
-    
+
     /* strict mode test : assignment to the function name raises a
        TypeError exception */
 
@@ -526,11 +575,111 @@ function test_function_expr_name()
     assert_throws(TypeError, f);
 }
 
+function test_parse_semicolon()
+{
+    /* 'yield' or 'await' may not be considered as a token if the
+       previous ';' is missing */
+    function *f()
+    {
+        function func() {
+        }
+        yield 1;
+        var h = x => x + 1
+        yield 2;
+    }
+    async function g()
+    {
+        function func() {
+        }
+        await 1;
+        var h = x => x + 1
+        await 2;
+    }
+}
+
+function test_parse_arrow_function()
+{
+    assert(typeof eval("() => {}\n() => {}"), "function");
+    assert(eval("() => {}\n+1"), 1);
+    assert(typeof eval("x => {}\n() => {}"), "function");
+    assert(typeof eval("async () => {}\n() => {}"), "function");
+    assert(typeof eval("async x => {}\n() => {}"), "function");
+}
+
+/* optional chaining tests not present in test262 */
+function test_optional_chaining()
+{
+    var a, z;
+    z = null;
+    a = { b: { c: 2 } };
+    assert(delete z?.b.c, true);
+    assert(delete a?.b.c, true);
+    assert(JSON.stringify(a), '{"b":{}}', "optional chaining delete");
+
+    a = { b: { c: 2 } };
+    assert(delete z?.b["c"], true);
+    assert(delete a?.b["c"], true);
+    assert(JSON.stringify(a), '{"b":{}}');
+
+    a = {
+        b() { return this._b; },
+        _b: { c: 42 }
+    };
+
+    assert((a?.b)().c, 42);
+
+    assert((a?.["b"])().c, 42);
+}
+
+function test_unicode_ident()
+{
+    var Ãµ = 3;
+    assert(typeof õ, "undefined");
+}
+
+/* check global variable optimization */
+function test_global_var_opt()
+{
+    var v2;
+    (1, eval)('var gvar1'); /* create configurable global variables */
+
+    gvar1 = 1;
+    Object.defineProperty(globalThis, "gvar1", { writable: false });
+    gvar1 = 2;
+    assert(gvar1, 1);
+
+    Object.defineProperty(globalThis, "gvar1", { get: function() { return "hello" },
+                                                 set: function(v) { v2 = v; } });
+    assert(gvar1, "hello");
+    gvar1 = 3;
+    assert(v2, 3);
+
+    Object.defineProperty(globalThis, "gvar1", { value: 4, writable: true, configurable: true });
+    assert(gvar1, 4);
+    gvar1 = 6;
+    
+    delete gvar1;
+    assert_throws(ReferenceError, function() { return gvar1 });
+    gvar1 = 5;
+    assert(gvar1, 5);
+}
+
+function test_number_literals()
+{
+    assert(0.1.a, undefined);
+    assert(0x1.a, undefined);
+    assert(0b1.a, undefined);
+    assert(01.a, undefined);
+    assert(0o1.a, undefined);
+    assert_throws(SyntaxError, () => eval('0.a'));
+}
+
 test_op1();
 test_cvt();
 test_eq();
 test_inc_dec();
 test_op2();
+test_constructor();
 test_delete();
 test_prototype();
 test_arguments();
@@ -540,8 +689,15 @@ test_template_skip();
 test_object_literal();
 test_regexp_skip();
 test_labels();
+test_labels2();
 test_destructuring();
 test_spread();
 test_function_length();
 test_argument_scope();
 test_function_expr_name();
+test_parse_semicolon();
+test_optional_chaining();
+test_parse_arrow_function();
+test_unicode_ident();
+test_global_var_opt();
+test_number_literals();

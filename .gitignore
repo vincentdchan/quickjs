@@ -1,8 +1,45 @@
-
+# Local build directories
 /cmake-build-debug
 /cmake-build-release
+/build/
+/build-*/
+.obj/
 
+# Editor and OS files
 .idea
-.DS_Store
 .vscode
+.DS_Store
 
+# Build artifacts
+*.a
+tests/bjson.so
+examples/*.so
+examples/hello
+examples/hello.exe
+examples/hello_module
+examples/test_fib
+examples/test_fib.exe
+hello.c
+test_fib.c
+host-qjsc
+qjs
+qjs.exe
+qjsc
+qjsc.exe
+qjscalc
+qjscalc.c
+repl.c
+run-test262
+run-test262.exe
+unicode_gen
+run_octane
+run_sunspider_like
+libwinpthread*.dll
+
+# Generated benchmark and test data
+microbench*.txt
+test262
+test262_*.txt
+test262o
+test262o_*.txt
+unicode
