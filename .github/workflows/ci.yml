@@ -278,6 +278,47 @@ jobs:
         run: |
           make microbench
 
+  windows-msvc:
+    name: Windows MSVC
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Configure
+        run: |
+          cmake -S . -B build-msvc -DQUICKJS_BUILD_TEST262=OFF
+      - name: Build
+        run: |
+          cmake --build build-msvc --config Release --parallel -- /clp:ErrorsOnly
+      - name: Stats
+        run: |
+          .\build-msvc\Release\qjs.exe -qd
+      - name: Run built-in tests
+        run: |
+          $qjs = ".\build-msvc\Release\qjs.exe"
+
+          & $qjs tests\test_closure.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $qjs tests\test_language.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $qjs --std tests\test_builtin.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $qjs tests\test_loop.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $qjs tests\test_bigint.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $qjs tests\test_cyclic_import.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $qjs tests\test_std.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $qjs tests\test_rw_handler.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run microbench
+        run: |
+          .\build-msvc\Release\qjs.exe --std tests\microbench.js
 
   qemu-alpine:
     runs-on: ubuntu-latest

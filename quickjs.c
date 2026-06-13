@@ -42,6 +42,9 @@
 #include <math.h>
 #if defined(__APPLE__)
 #include <malloc/malloc.h>
+#elif defined(_MSC_VER)
+#include <malloc.h>
+#define alloca _alloca
 #elif defined(__linux__) || defined(__GLIBC__)
 #include <malloc.h>
 #elif defined(__FreeBSD__)
@@ -47195,39 +47198,122 @@ static JSValue js_math_random(JSContext *ctx, JSValueConst this_val,
     return __JS_NewFloat64(ctx, u.d - 1.0);
 }
 
+#ifdef _MSC_VER
+#define QJS_MATH_F_F(name) static double js_math_msvc_##name(double x) { return name(x); }
+#define QJS_MATH_F_F_F(name) static double js_math_msvc_##name(double x, double y) { return name(x, y); }
+
+QJS_MATH_F_F(fabs)
+QJS_MATH_F_F(floor)
+QJS_MATH_F_F(ceil)
+QJS_MATH_F_F(sqrt)
+QJS_MATH_F_F(acos)
+QJS_MATH_F_F(asin)
+QJS_MATH_F_F(atan)
+QJS_MATH_F_F_F(atan2)
+QJS_MATH_F_F(cos)
+QJS_MATH_F_F(exp)
+QJS_MATH_F_F(log)
+QJS_MATH_F_F(sin)
+QJS_MATH_F_F(tan)
+QJS_MATH_F_F(trunc)
+QJS_MATH_F_F(cosh)
+QJS_MATH_F_F(sinh)
+QJS_MATH_F_F(tanh)
+QJS_MATH_F_F(acosh)
+QJS_MATH_F_F(asinh)
+QJS_MATH_F_F(atanh)
+QJS_MATH_F_F(expm1)
+QJS_MATH_F_F(log1p)
+QJS_MATH_F_F(log2)
+QJS_MATH_F_F(log10)
+QJS_MATH_F_F(cbrt)
+
+#define QJS_MATH_FABS js_math_msvc_fabs
+#define QJS_MATH_FLOOR js_math_msvc_floor
+#define QJS_MATH_CEIL js_math_msvc_ceil
+#define QJS_MATH_SQRT js_math_msvc_sqrt
+#define QJS_MATH_ACOS js_math_msvc_acos
+#define QJS_MATH_ASIN js_math_msvc_asin
+#define QJS_MATH_ATAN js_math_msvc_atan
+#define QJS_MATH_ATAN2 js_math_msvc_atan2
+#define QJS_MATH_COS js_math_msvc_cos
+#define QJS_MATH_EXP js_math_msvc_exp
+#define QJS_MATH_LOG js_math_msvc_log
+#define QJS_MATH_SIN js_math_msvc_sin
+#define QJS_MATH_TAN js_math_msvc_tan
+#define QJS_MATH_TRUNC js_math_msvc_trunc
+#define QJS_MATH_COSH js_math_msvc_cosh
+#define QJS_MATH_SINH js_math_msvc_sinh
+#define QJS_MATH_TANH js_math_msvc_tanh
+#define QJS_MATH_ACOSH js_math_msvc_acosh
+#define QJS_MATH_ASINH js_math_msvc_asinh
+#define QJS_MATH_ATANH js_math_msvc_atanh
+#define QJS_MATH_EXPM1 js_math_msvc_expm1
+#define QJS_MATH_LOG1P js_math_msvc_log1p
+#define QJS_MATH_LOG2 js_math_msvc_log2
+#define QJS_MATH_LOG10 js_math_msvc_log10
+#define QJS_MATH_CBRT js_math_msvc_cbrt
+#else
+#define QJS_MATH_FABS fabs
+#define QJS_MATH_FLOOR floor
+#define QJS_MATH_CEIL ceil
+#define QJS_MATH_SQRT sqrt
+#define QJS_MATH_ACOS acos
+#define QJS_MATH_ASIN asin
+#define QJS_MATH_ATAN atan
+#define QJS_MATH_ATAN2 atan2
+#define QJS_MATH_COS cos
+#define QJS_MATH_EXP exp
+#define QJS_MATH_LOG log
+#define QJS_MATH_SIN sin
+#define QJS_MATH_TAN tan
+#define QJS_MATH_TRUNC trunc
+#define QJS_MATH_COSH cosh
+#define QJS_MATH_SINH sinh
+#define QJS_MATH_TANH tanh
+#define QJS_MATH_ACOSH acosh
+#define QJS_MATH_ASINH asinh
+#define QJS_MATH_ATANH atanh
+#define QJS_MATH_EXPM1 expm1
+#define QJS_MATH_LOG1P log1p
+#define QJS_MATH_LOG2 log2
+#define QJS_MATH_LOG10 log10
+#define QJS_MATH_CBRT cbrt
+#endif
+
 static const JSCFunctionListEntry js_math_funcs[] = {
     JS_CFUNC_MAGIC_DEF("min", 2, js_math_min_max, 0 ),
     JS_CFUNC_MAGIC_DEF("max", 2, js_math_min_max, 1 ),
-    JS_CFUNC_SPECIAL_DEF("abs", 1, f_f, fabs ),
-    JS_CFUNC_SPECIAL_DEF("floor", 1, f_f, floor ),
-    JS_CFUNC_SPECIAL_DEF("ceil", 1, f_f, ceil ),
+    JS_CFUNC_SPECIAL_DEF("abs", 1, f_f, QJS_MATH_FABS ),
+    JS_CFUNC_SPECIAL_DEF("floor", 1, f_f, QJS_MATH_FLOOR ),
+    JS_CFUNC_SPECIAL_DEF("ceil", 1, f_f, QJS_MATH_CEIL ),
     JS_CFUNC_SPECIAL_DEF("round", 1, f_f, js_math_round ),
-    JS_CFUNC_SPECIAL_DEF("sqrt", 1, f_f, sqrt ),
+    JS_CFUNC_SPECIAL_DEF("sqrt", 1, f_f, QJS_MATH_SQRT ),
 
-    JS_CFUNC_SPECIAL_DEF("acos", 1, f_f, acos ),
-    JS_CFUNC_SPECIAL_DEF("asin", 1, f_f, asin ),
-    JS_CFUNC_SPECIAL_DEF("atan", 1, f_f, atan ),
-    JS_CFUNC_SPECIAL_DEF("atan2", 2, f_f_f, atan2 ),
-    JS_CFUNC_SPECIAL_DEF("cos", 1, f_f, cos ),
-    JS_CFUNC_SPECIAL_DEF("exp", 1, f_f, exp ),
-    JS_CFUNC_SPECIAL_DEF("log", 1, f_f, log ),
+    JS_CFUNC_SPECIAL_DEF("acos", 1, f_f, QJS_MATH_ACOS ),
+    JS_CFUNC_SPECIAL_DEF("asin", 1, f_f, QJS_MATH_ASIN ),
+    JS_CFUNC_SPECIAL_DEF("atan", 1, f_f, QJS_MATH_ATAN ),
+    JS_CFUNC_SPECIAL_DEF("atan2", 2, f_f_f, QJS_MATH_ATAN2 ),
+    JS_CFUNC_SPECIAL_DEF("cos", 1, f_f, QJS_MATH_COS ),
+    JS_CFUNC_SPECIAL_DEF("exp", 1, f_f, QJS_MATH_EXP ),
+    JS_CFUNC_SPECIAL_DEF("log", 1, f_f, QJS_MATH_LOG ),
     JS_CFUNC_SPECIAL_DEF("pow", 2, f_f_f, js_pow ),
-    JS_CFUNC_SPECIAL_DEF("sin", 1, f_f, sin ),
-    JS_CFUNC_SPECIAL_DEF("tan", 1, f_f, tan ),
+    JS_CFUNC_SPECIAL_DEF("sin", 1, f_f, QJS_MATH_SIN ),
+    JS_CFUNC_SPECIAL_DEF("tan", 1, f_f, QJS_MATH_TAN ),
     /* ES6 */
-    JS_CFUNC_SPECIAL_DEF("trunc", 1, f_f, trunc ),
+    JS_CFUNC_SPECIAL_DEF("trunc", 1, f_f, QJS_MATH_TRUNC ),
     JS_CFUNC_SPECIAL_DEF("sign", 1, f_f, js_math_sign ),
-    JS_CFUNC_SPECIAL_DEF("cosh", 1, f_f, cosh ),
-    JS_CFUNC_SPECIAL_DEF("sinh", 1, f_f, sinh ),
-    JS_CFUNC_SPECIAL_DEF("tanh", 1, f_f, tanh ),
-    JS_CFUNC_SPECIAL_DEF("acosh", 1, f_f, acosh ),
-    JS_CFUNC_SPECIAL_DEF("asinh", 1, f_f, asinh ),
-    JS_CFUNC_SPECIAL_DEF("atanh", 1, f_f, atanh ),
-    JS_CFUNC_SPECIAL_DEF("expm1", 1, f_f, expm1 ),
-    JS_CFUNC_SPECIAL_DEF("log1p", 1, f_f, log1p ),
-    JS_CFUNC_SPECIAL_DEF("log2", 1, f_f, log2 ),
-    JS_CFUNC_SPECIAL_DEF("log10", 1, f_f, log10 ),
-    JS_CFUNC_SPECIAL_DEF("cbrt", 1, f_f, cbrt ),
+    JS_CFUNC_SPECIAL_DEF("cosh", 1, f_f, QJS_MATH_COSH ),
+    JS_CFUNC_SPECIAL_DEF("sinh", 1, f_f, QJS_MATH_SINH ),
+    JS_CFUNC_SPECIAL_DEF("tanh", 1, f_f, QJS_MATH_TANH ),
+    JS_CFUNC_SPECIAL_DEF("acosh", 1, f_f, QJS_MATH_ACOSH ),
+    JS_CFUNC_SPECIAL_DEF("asinh", 1, f_f, QJS_MATH_ASINH ),
+    JS_CFUNC_SPECIAL_DEF("atanh", 1, f_f, QJS_MATH_ATANH ),
+    JS_CFUNC_SPECIAL_DEF("expm1", 1, f_f, QJS_MATH_EXPM1 ),
+    JS_CFUNC_SPECIAL_DEF("log1p", 1, f_f, QJS_MATH_LOG1P ),
+    JS_CFUNC_SPECIAL_DEF("log2", 1, f_f, QJS_MATH_LOG2 ),
+    JS_CFUNC_SPECIAL_DEF("log10", 1, f_f, QJS_MATH_LOG10 ),
+    JS_CFUNC_SPECIAL_DEF("cbrt", 1, f_f, QJS_MATH_CBRT ),
     JS_CFUNC_DEF("hypot", 2, js_math_hypot ),
     JS_CFUNC_DEF("random", 0, js_math_random ),
     JS_CFUNC_SPECIAL_DEF("f16round", 1, f_f, js_math_f16round ),
