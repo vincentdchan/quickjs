@@ -1,0 +1,3 @@
+display_name: QuickJS Upstream Merge
+short_description: Merge upstream QuickJS into this fork while preserving platform compatibility.
+default_prompt: Merge upstream QuickJS into this fork, resolve conflicts by upstream intent, preserve local platform compatibility, and verify across MSVC, MinGW, macOS, Linux, and CI.
