@@ -300,25 +300,25 @@ jobs:
         run: |
           $qjs = ".\build-msvc\Release\qjs.exe"
 
-          & $qjs tests\test_closure.js
+          & $qjs tests/test_closure.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $qjs tests\test_language.js
+          & $qjs tests/test_language.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $qjs --std tests\test_builtin.js
+          & $qjs --std tests/test_builtin.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $qjs tests\test_loop.js
+          & $qjs tests/test_loop.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $qjs tests\test_bigint.js
+          & $qjs tests/test_bigint.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $qjs tests\test_cyclic_import.js
+          & $qjs tests/test_cyclic_import.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $qjs tests\test_std.js
+          & $qjs tests/test_std.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $qjs tests\test_rw_handler.js
+          & $qjs tests/test_rw_handler.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run microbench
         run: |
-          .\build-msvc\Release\qjs.exe --std tests\microbench.js
+          .\build-msvc\Release\qjs.exe --std tests/microbench.js
 
   qemu-alpine:
     runs-on: ubuntu-latest
