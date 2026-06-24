@@ -7659,6 +7659,109 @@ JSValue JS_NewError(JSContext *ctx)
     return JS_NewObjectClass(ctx, JS_CLASS_ERROR);
 }
 
+static int js_callsite_define_string(JSContext *ctx, JSValueConst obj,
+                                     const char *name, const char *value)
+{
+    JSValue val;
+    if (value == NULL)
+        val = JS_UNDEFINED;
+    else
+        val = JS_NewString(ctx, value);
+    if (JS_IsException(val))
+        return -1;
+    return JS_DefinePropertyValueStr(ctx, obj, name, val, JS_PROP_ENUMERABLE | JS_PROP_CONFIGURABLE);
+}
+
+static int js_callsite_define_int_or_undefined(JSContext *ctx, JSValueConst obj,
+                                               const char *name, int value)
+{
+    JSValue val = value == 0 ? JS_UNDEFINED : JS_NewInt32(ctx, value);
+    return JS_DefinePropertyValueStr(ctx, obj, name, val, JS_PROP_ENUMERABLE | JS_PROP_CONFIGURABLE);
+}
+
+JSValue JS_CaptureCallSites(JSContext *ctx, int skip_count)
+{
+    JSStackFrame *sf;
+    JSValue array = JS_NewArray(ctx);
+    uint32_t index = 0;
+    int skipped = 0;
+
+    if (JS_IsException(array))
+        return array;
+
+    for (sf = ctx->rt->current_stack_frame; sf != NULL; sf = sf->prev_frame) {
+        JSValue frame, function_name_value;
+        const char *function_name = NULL;
+        const char *file_name = NULL;
+        int line_num = 0;
+        int col_num = 0;
+        BOOL is_native = TRUE;
+
+        if (sf->js_mode & JS_MODE_BACKTRACE_BARRIER)
+            break;
+        if (skipped < skip_count) {
+            skipped++;
+            continue;
+        }
+
+        frame = JS_NewObject(ctx);
+        if (JS_IsException(frame)) {
+            JS_FreeValue(ctx, array);
+            return frame;
+        }
+
+        function_name = get_prop_string(ctx, sf->cur_func, JS_ATOM_name);
+        if (function_name != NULL && function_name[0] == '\0') {
+            JS_FreeCString(ctx, function_name);
+            function_name = NULL;
+        }
+
+        JSObject *p = JS_VALUE_GET_OBJ(sf->cur_func);
+        if (js_class_has_bytecode(p->class_id)) {
+            JSFunctionBytecode *b = p->u.func.function_bytecode;
+            is_native = FALSE;
+            if (b->has_debug) {
+                const char *atom_str;
+                line_num = find_line_num(ctx, b, sf->cur_pc - b->byte_code_buf - 1, &col_num);
+                atom_str = JS_AtomToCString(ctx, b->debug.filename);
+                if (atom_str != NULL) {
+                    file_name = atom_str;
+                }
+            }
+        }
+
+        function_name_value = function_name == NULL ? JS_UNDEFINED : JS_NewString(ctx, function_name);
+        if (JS_IsException(function_name_value) ||
+            JS_DefinePropertyValueStr(ctx, frame, "functionName", function_name_value,
+                                      JS_PROP_ENUMERABLE | JS_PROP_CONFIGURABLE) < 0 ||
+            js_callsite_define_string(ctx, frame, "fileName", file_name) < 0 ||
+            js_callsite_define_int_or_undefined(ctx, frame, "lineNumber", line_num) < 0 ||
+            js_callsite_define_int_or_undefined(ctx, frame, "columnNumber", col_num) < 0 ||
+            JS_DefinePropertyValueStr(ctx, frame, "isNative", JS_NewBool(ctx, is_native),
+                                      JS_PROP_ENUMERABLE | JS_PROP_CONFIGURABLE) < 0) {
+            JS_FreeCString(ctx, function_name);
+            if (file_name != NULL)
+                JS_FreeCString(ctx, file_name);
+            JS_FreeValue(ctx, frame);
+            JS_FreeValue(ctx, array);
+            return JS_EXCEPTION;
+        }
+
+        JS_FreeCString(ctx, function_name);
+        if (file_name != NULL)
+            JS_FreeCString(ctx, file_name);
+
+        if (JS_DefinePropertyValueUint32(ctx, array, index++, frame,
+                                         JS_PROP_ENUMERABLE | JS_PROP_CONFIGURABLE) < 0) {
+            JS_FreeValue(ctx, frame);
+            JS_FreeValue(ctx, array);
+            return JS_EXCEPTION;
+        }
+    }
+
+    return array;
+}
+
 static JSValue JS_ThrowError2(JSContext *ctx, JSErrorEnum error_num,
                               const char *fmt, va_list ap, BOOL add_backtrace)
 {
