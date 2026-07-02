@@ -43030,7 +43030,7 @@ static JSValue js_array_splice(JSContext *ctx, JSValueConst this_val,
     int kPresent;
     uint32_t i, item_count;
     JSObject *p;
-    
+
     arr = JS_UNDEFINED;
     obj = JS_ToObject(ctx, this_val);
     if (js_get_length64(ctx, &len, obj))
@@ -43058,7 +43058,7 @@ static JSValue js_array_splice(JSContext *ctx, JSValueConst this_val,
     /* warning: 'len' may be different from the actual array length
        because it may have been modified */
     new_len = len + item_count - del_count;
-    
+
     ctor = JS_ArraySpeciesGetCtor(ctx, obj);
     if (JS_IsException(ctor))
         goto exception;
@@ -43067,7 +43067,7 @@ static JSValue js_array_splice(JSContext *ctx, JSValueConst this_val,
     if (JS_IsUndefined(ctor) &&
         p->class_id == JS_CLASS_ARRAY &&
         p->fast_array &&
-        final <= p->u.array.count && 
+        final <= p->u.array.count &&
         (get_shape_prop(p->shape)->flags & JS_PROP_WRITABLE) && /* writable array length */
         can_extend_fast_array(p)) {
         uint32_t count32 = p->u.array.count;
@@ -43077,7 +43077,7 @@ static JSValue js_array_splice(JSContext *ctx, JSValueConst this_val,
         arr = js_create_array(ctx, del_count, (JSValueConst *)arrp + start);
         if (JS_IsException(arr))
             goto exception;
-        
+
         if (item_count != del_count) {
             /* resize */
             uint32_t new_count32;
@@ -43107,7 +43107,7 @@ static JSValue js_array_splice(JSContext *ctx, JSValueConst this_val,
         JS_FreeValue(ctx, ctor);
         if (JS_IsException(arr))
             goto exception;
-        
+
         n = 0;
         for (k = start; k < final; k++, n++) {
             kPresent = JS_TryGetPropertyInt64(ctx, obj, k, &val);
@@ -43120,7 +43120,7 @@ static JSValue js_array_splice(JSContext *ctx, JSValueConst this_val,
         }
         if (JS_SetProperty(ctx, arr, JS_ATOM_length, JS_NewInt64(ctx, n)) < 0)
             goto exception;
-        
+
         if (item_count != del_count) {
             if (JS_CopySubArray(ctx, obj, start + item_count,
                                 start + del_count, len - (start + del_count),
