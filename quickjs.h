@@ -952,6 +952,29 @@ typedef void JSHostPromiseRejectionTracker(JSContext *ctx, JSValueConst promise,
                                            JS_BOOL is_handled, void *opaque);
 void JS_SetHostPromiseRejectionTracker(JSRuntime *rt, JSHostPromiseRejectionTracker *cb, void *opaque);
 
+/* Embedder-provided async context propagated through the JS job queue. */
+typedef void *JSHostAsyncContext;
+typedef JSHostAsyncContext JSHostAsyncContextCaptureFunc(JSContext *ctx,
+                                                        void *opaque);
+typedef void JSHostAsyncContextEnterFunc(JSContext *ctx,
+                                         JSHostAsyncContext async_context,
+                                         void *opaque);
+typedef void JSHostAsyncContextLeaveFunc(JSContext *ctx,
+                                         JSHostAsyncContext async_context,
+                                         void *opaque);
+typedef void JSHostAsyncContextFreeFunc(JSRuntime *rt,
+                                        JSHostAsyncContext async_context,
+                                        void *opaque);
+typedef struct JSHostAsyncContextHooks {
+    JSHostAsyncContextCaptureFunc *capture;
+    JSHostAsyncContextEnterFunc *enter;
+    JSHostAsyncContextLeaveFunc *leave;
+    JSHostAsyncContextFreeFunc *free;
+} JSHostAsyncContextHooks;
+void JS_SetHostAsyncContextHooks(JSRuntime *rt,
+                                 const JSHostAsyncContextHooks *hooks,
+                                 void *opaque);
+
 /* return != 0 if the JS code needs to be interrupted */
 typedef int JSInterruptHandler(JSRuntime *rt, void *opaque);
 void JS_SetInterruptHandler(JSRuntime *rt, JSInterruptHandler *cb, void *opaque);
