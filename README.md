@@ -7,6 +7,10 @@ CMake support of QuickJS, use submodule to the official mirror.
 
 Available on Windows(32-bit) **without** mingw.
 
+# Nodex extensions
+
+This fork exposes a small `JS_CaptureCallSites(ctx, skip_count)` C API so embedders such as Nodex can capture structured stack frames without parsing formatted `Error.stack` strings. The API returns frame metadata such as function name, filename, line/column, and whether the frame is native; higher-level Node/V8-compatible `CallSite` behavior remains implemented by the embedder.
+
 # Usage
 
 Clone the repo:

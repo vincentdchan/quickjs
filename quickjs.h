@@ -248,12 +248,38 @@ typedef struct JSValue {
 
 /* avoid uninitialized data by using a 64 bit field even if only 32
    bits are needed because some compilers generate slower code */
+#ifdef __cplusplus
+static inline JSValue JS_MKVAL_CPP(int tag, uint32_t val)
+{
+    JSValue v;
+    v.u.uint64 = val;
+    v.tag = tag;
+    return v;
+}
+static inline JSValue JS_MKPTR_CPP(int tag, void *p)
+{
+    JSValue v;
+    v.u.ptr = p;
+    v.tag = tag;
+    return v;
+}
+static inline JSValue JS_NAN_CPP(void)
+{
+    JSValue v;
+    v.u.uint64 = 0x7ff8000000000000ULL;
+    v.tag = JS_TAG_FLOAT64;
+    return v;
+}
+#define JS_MKVAL(tag, val) JS_MKVAL_CPP((tag), (uint32_t)(val))
+#define JS_MKPTR(tag, p) JS_MKPTR_CPP((tag), (void *)(p))
+#define JS_NAN JS_NAN_CPP()
+#else
 #define JS_MKVAL(tag, val) (JSValue){ (JSValueUnion){ .uint64 = (uint32_t)(val) }, tag }
 #define JS_MKPTR(tag, p) (JSValue){ (JSValueUnion){ .ptr = p }, tag }
+#define JS_NAN (JSValue){ .u.float64 = JS_FLOAT64_NAN, JS_TAG_FLOAT64 }
+#endif
 
 #define JS_TAG_IS_FLOAT64(tag) ((unsigned)(tag) == JS_TAG_FLOAT64)
-
-#define JS_NAN (JSValue){ .u.float64 = JS_FLOAT64_NAN, JS_TAG_FLOAT64 }
 
 static inline JSValue __JS_NewFloat64(JSContext *ctx, double d)
 {
@@ -674,6 +700,7 @@ JSValue JS_GetException(JSContext *ctx);
 JS_BOOL JS_HasException(JSContext *ctx);
 JS_BOOL JS_IsError(JSContext *ctx, JSValueConst val);
 JSValue JS_NewError(JSContext *ctx);
+JSValue JS_CaptureCallSites(JSContext *ctx, int skip_count);
 JSValue __js_printf_like(2, 3) JS_ThrowSyntaxError(JSContext *ctx, const char *fmt, ...);
 JSValue __js_printf_like(2, 3) JS_ThrowTypeError(JSContext *ctx, const char *fmt, ...);
 JSValue __js_printf_like(2, 3) JS_ThrowReferenceError(JSContext *ctx, const char *fmt, ...);
@@ -1062,7 +1089,8 @@ static inline JSValue JS_NewCFunctionMagic(JSContext *ctx, JSCFunctionMagic *fun
                                            int length, JSCFunctionEnum cproto, int magic)
 {
     /* Used to squelch a -Wcast-function-type warning. */
-    JSCFunctionType ft = { .generic_magic = func };
+    JSCFunctionType ft;
+    ft.generic_magic = func;
     return JS_NewCFunction2(ctx, ft.generic, name, length, cproto, magic);
 }
 int JS_SetConstructor(JSContext *ctx, JSValueConst func_obj,
