@@ -383,6 +383,9 @@ struct JSRuntime {
     JSHostPromiseRejectionTracker *host_promise_rejection_tracker;
     void *host_promise_rejection_tracker_opaque;
 
+    JSHostAsyncContextHooks host_async_context_hooks;
+    void *host_async_context_opaque;
+
     struct list_head job_list; /* list of JSJobEntry.link */
 
     JSModuleNormalizeFunc *module_normalize_func;
@@ -960,6 +963,11 @@ typedef struct JSJobEntry {
     struct list_head link;
     JSContext *realm;
     JSJobFunc *job_func;
+    JSHostAsyncContext host_async_context;
+    JSHostAsyncContextEnterFunc *host_async_context_enter;
+    JSHostAsyncContextLeaveFunc *host_async_context_leave;
+    JSHostAsyncContextFreeFunc *host_async_context_free;
+    void *host_async_context_opaque;
     int argc;
     JSValue argv[0];
 } JSJobEntry;
@@ -2284,6 +2292,27 @@ int JS_GetStripInfo(JSRuntime *rt)
     return rt->strip_flags;
 }
 
+void JS_SetHostAsyncContextHooks(JSRuntime *rt,
+                                 const JSHostAsyncContextHooks *hooks,
+                                 void *opaque)
+{
+    if (hooks != NULL) {
+        rt->host_async_context_hooks = *hooks;
+    } else {
+        memset(&rt->host_async_context_hooks, 0, sizeof(rt->host_async_context_hooks));
+    }
+    rt->host_async_context_opaque = opaque;
+}
+
+static void js_free_host_async_context(JSRuntime *rt, JSJobEntry *e)
+{
+    JSHostAsyncContextFreeFunc *free_func = e->host_async_context_free;
+    if (free_func != NULL && e->host_async_context != NULL) {
+        free_func(rt, e->host_async_context, e->host_async_context_opaque);
+    }
+    e->host_async_context = NULL;
+}
+
 static int JS_EnqueueJob2(JSContext *ctx, JSJobFunc *job_func,
                           int argc, JSValueConst *argv, BOOL no_exception)
 {
@@ -2299,6 +2328,15 @@ static int JS_EnqueueJob2(JSContext *ctx, JSJobFunc *job_func,
         return -1;
     e->realm = JS_DupContext(ctx);
     e->job_func = job_func;
+    e->host_async_context_enter = rt->host_async_context_hooks.enter;
+    e->host_async_context_leave = rt->host_async_context_hooks.leave;
+    e->host_async_context_free = rt->host_async_context_hooks.free;
+    e->host_async_context_opaque = rt->host_async_context_opaque;
+    if (rt->host_async_context_hooks.capture != NULL) {
+        e->host_async_context = rt->host_async_context_hooks.capture(ctx, rt->host_async_context_opaque);
+    } else {
+        e->host_async_context = NULL;
+    }
     e->argc = argc;
     for(i = 0; i < argc; i++) {
         e->argv[i] = JS_DupValue(ctx, argv[i]);
@@ -2341,7 +2379,13 @@ int JS_ExecutePendingJob(JSRuntime *rt, JSContext **pctx)
     e = list_entry(rt->job_list.next, JSJobEntry, link);
     list_del(&e->link);
     ctx = e->realm;
+    if (e->host_async_context_enter != NULL && e->host_async_context != NULL) {
+        e->host_async_context_enter(ctx, e->host_async_context, e->host_async_context_opaque);
+    }
     res = e->job_func(ctx, e->argc, (JSValueConst *)e->argv);
+    if (e->host_async_context_leave != NULL && e->host_async_context != NULL) {
+        e->host_async_context_leave(ctx, e->host_async_context, e->host_async_context_opaque);
+    }
     for(i = 0; i < e->argc; i++)
         JS_FreeValue(ctx, e->argv[i]);
     if (JS_IsException(res))
@@ -2349,6 +2393,7 @@ int JS_ExecutePendingJob(JSRuntime *rt, JSContext **pctx)
     else
         ret = 1;
     JS_FreeValue(ctx, res);
+    js_free_host_async_context(rt, e);
     js_free(ctx, e);
     if (pctx) {
         if (js_rc(ctx)->ref_count > 1)
@@ -2437,6 +2482,7 @@ void JS_FreeRuntime(JSRuntime *rt)
         JSJobEntry *e = list_entry(el, JSJobEntry, link);
         for(i = 0; i < e->argc; i++)
             JS_FreeValueRT(rt, e->argv[i]);
+        js_free_host_async_context(rt, e);
         JS_FreeContext(e->realm);
         js_free_rt(rt, e);
     }
