@@ -95,6 +95,8 @@ typedef struct {
 namelist_t test_list;
 namelist_t exclude_list;
 namelist_t exclude_dir_list;
+namelist_t error_list;
+pthread_mutex_t error_list_mutex;
 
 int nthreads;
 pthread_t progress_thread;
@@ -129,7 +131,6 @@ char *harness_skip_features;
 int *harness_skip_features_count;
 char *error_filename;
 char *error_file;
-FILE *error_out;
 char *report_filename;
 int update_errors;
 int slow_test_threshold;
@@ -398,20 +399,22 @@ int namelist_cmp_indirect(const void *a, const void *b)
     return namelist_cmp(*(const char **)a, *(const char **)b);
 }
 
-void namelist_sort(namelist_t *lp)
+void namelist_sort(namelist_t *lp, BOOL remove_duplicates)
 {
     int i, count;
     if (lp->count > 1) {
         qsort(lp->array, lp->count, sizeof(*lp->array), namelist_cmp_indirect);
         /* remove duplicates */
-        for (count = i = 1; i < lp->count; i++) {
-            if (namelist_cmp(lp->array[count - 1], lp->array[i]) == 0) {
-                free(lp->array[i]);
-            } else {
-                lp->array[count++] = lp->array[i];
+        if (remove_duplicates) {
+            for (count = i = 1; i < lp->count; i++) {
+                if (namelist_cmp(lp->array[count - 1], lp->array[i]) == 0) {
+                    free(lp->array[i]);
+                } else {
+                    lp->array[count++] = lp->array[i];
+                }
             }
+            lp->count = count;
         }
-        lp->count = count;
     }
 }
 
@@ -1089,7 +1092,7 @@ void update_exclude_dirs(void)
     }
     ep->count = count;
 
-    namelist_sort(dp);
+    namelist_sort(dp, TRUE);
 
     /* filter out excluded directories */
     for (count = i = 0; i < lp->count; i++) {
@@ -1370,6 +1373,22 @@ int longest_match(const char *str, const char *find, int pos, int *ppos, int lin
     return maxlen;
 }
 
+static __attribute__((__format__(__printf__, 1, 2))) void print_error(const char *fmt, ...)
+{
+    char buf[1024];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    if (update_errors) {
+        pthread_mutex_lock(&error_list_mutex);
+        namelist_add(&error_list, NULL, buf);
+        pthread_mutex_unlock(&error_list_mutex);
+    } else {
+        fputs(buf, stdout);
+    }
+}
+
 static int eval_buf(JSContext *ctx, const char *buf, size_t buf_len,
                     const char *filename, int is_test, int is_negative,
                     const char *error_type, FILE *outfile, int eval_flags,
@@ -1517,11 +1536,11 @@ static int eval_buf(JSContext *ctx, const char *buf, size_t buf_len,
             } else {
                 if (!s) {   // not yet reported
                     if (msg) {
-                        fprintf(error_out, "%s:%d: %sunexpected error type: %s\n",
-                                filename, error_line, strict_mode, msg);
+                        print_error("%s:%d: %sunexpected error type: %s\n",
+                                    filename, error_line, strict_mode, msg);
                     } else {
-                        fprintf(error_out, "%s:%d: %sexpected error\n",
-                                filename, error_line, strict_mode);
+                        print_error("%s:%d: %sexpected error\n",
+                                    filename, error_line, strict_mode);
                     }
                     new_errors++;
                 }
@@ -1537,8 +1556,8 @@ static int eval_buf(JSContext *ctx, const char *buf, size_t buf_len,
                             longest_match(buf, p, pos, &pos, pos_line, &error_line);
                         }
                     }
-                    fprintf(error_out, "%s:%d: %s%s%s\n", filename, error_line, strict_mode,
-                            error_file ? "unexpected error: " : "", msg);
+                    print_error("%s:%d: %s%s%s\n", filename, error_line, strict_mode,
+                                error_file ? "unexpected error: " : "", msg);
 
                     if (s && (!str_equal(s, msg) || error_line != s_line)) {
                         printf("%s:%d: %sprevious error: %s\n", filename, s_line, strict_mode, s);
@@ -2256,6 +2275,7 @@ int main(int argc, char **argv)
     
     init_thread_local_storage(tls);
     pthread_mutex_init(&stats_mutex, NULL);
+    pthread_mutex_init(&error_list_mutex, NULL);
 
 #if !defined(_WIN32)
     compact = !isatty(STDERR_FILENO);
@@ -2350,7 +2370,6 @@ int main(int argc, char **argv)
     }
     nthreads = max_int(nthreads, 1);
 
-    error_out = stdout;
     if (error_filename) {
         error_file = load_file(error_filename, NULL);
         if (only_check_errors && error_file) {
@@ -2360,10 +2379,6 @@ int main(int argc, char **argv)
         if (update_errors) {
             free(error_file);
             error_file = NULL;
-            error_out = fopen(error_filename, "w");
-            if (!error_out) {
-                perror_exit(1, error_filename);
-            }
         }
     }
 
@@ -2409,8 +2424,8 @@ int main(int argc, char **argv)
         }
 
         // exclude_dir_list has already been sorted by update_exclude_dirs()
-        namelist_sort(&test_list);
-        namelist_sort(&exclude_list);
+        namelist_sort(&test_list, TRUE);
+        namelist_sort(&exclude_list, TRUE);
         
         for (i = 0; i < test_list.count; i++) {
             switch (include_exclude_or_skip(i)) {
@@ -2521,14 +2536,25 @@ int main(int argc, char **argv)
             fprintf(stderr, "Total user time: %.3fs (nthreads=%d)\n", (double)clocks / CLOCKS_PER_SEC, nthreads);
     }
 
-    if (error_out && error_out != stdout) {
+    if (update_errors) {
+        FILE *error_out = fopen(error_filename, "w");
+        int i;
+        if (!error_out) {
+            perror_exit(1, error_filename);
+        }
+        /* sort the error list so that its order does not depend on
+           the thread scheduling */
+        namelist_sort(&error_list, FALSE);
+        for (i = 0; i < error_list.count; i++) {
+            fputs(error_list.array[i], error_out);
+        }
         fclose(error_out);
-        error_out = NULL;
     }
 
     namelist_free(&test_list);
     namelist_free(&exclude_list);
     namelist_free(&exclude_dir_list);
+    namelist_free(&error_list);
     free(harness_dir);
     free(harness_skip_features);
     free(harness_skip_features_count);

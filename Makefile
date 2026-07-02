@@ -508,7 +508,7 @@ test2: run-test262
 	time ./run-test262 -t -m -c test262.conf -a
 
 test2-update: run-test262
-	./run-test262 -t -u -c test262.conf -a -T 1
+	./run-test262 -t -u -c test262.conf -a
 
 test2-check: run-test262
 	time ./run-test262 -t -m -c test262.conf -E -a
